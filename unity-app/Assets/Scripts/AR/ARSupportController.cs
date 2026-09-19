@@ -1,0 +1,1 @@
+using UnityEngine;using UnityEngine.XR.ARFoundation;public class ARSupportController:MonoBehaviour{[SerializeField] ARSession session;void Start(){if(ARSession.state==ARSessionState.Unsupported){Debug.LogWarning("AR navigation isn't supported on this device.");}}}

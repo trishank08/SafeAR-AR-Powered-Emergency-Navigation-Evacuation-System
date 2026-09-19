@@ -1,0 +1,2 @@
+using System;using System.Collections;using UnityEngine;using UnityEngine.Networking;
+public class ApiClient:MonoBehaviour{[SerializeField] string baseUrl="http://10.0.2.2:5000/api";public IEnumerator Get(string path,Action<string> ok,Action<string> fail){using var r=UnityWebRequest.Get(baseUrl+path);r.timeout=8;yield return r.SendWebRequest();if(r.result==UnityWebRequest.Result.Success)ok?.Invoke(r.downloadHandler.text);else fail?.Invoke(r.error);}}

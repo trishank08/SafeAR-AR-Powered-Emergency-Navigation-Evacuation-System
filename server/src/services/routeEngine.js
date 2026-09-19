@@ -1,0 +1,14 @@
+export const SEVERITY={LOW:0.2,MEDIUM:0.5,HIGH:0.8,CRITICAL:1};
+export function calculateRisk({distance,crowdLevel=0,hazardDistance=999,turns=0,width=1.5,floor=0,stairCount=0,historicalIncidents=0,blocked=false}){
+  const distanceRisk=Math.min(distance/500,1)*0.2; const crowdRisk=crowdLevel*0.2; const hazardRisk=hazardDistance<20?0.45:hazardDistance<50?0.2:0; const widthRisk=Math.max(0,1-width/2)*0.08; const stairRisk=Math.min(stairCount/5,1)*0.05; const incidentRisk=Math.min(historicalIncidents/10,1)*0.02; const blockedRisk=blocked?1:0; const score=Math.min(1,distanceRisk+crowdRisk+hazardRisk+widthRisk+stairRisk+incidentRisk+blockedRisk); return {riskScore:Number(score.toFixed(3)),riskLevel:score<.3?'LOW':score<.6?'MEDIUM':score<.8?'HIGH':'CRITICAL'};
+}
+export function buildGraph(waypoints,edges,hazards,{avoidStairs=false,accessibilityRequired=false}={}){
+ const blocked=new Set(hazards.filter(h=>h.active).flatMap(h=>h.waypointIds.map(String))); const adj=new Map(waypoints.map(w=>[String(w._id),[]]));
+ for(const e of edges){const a=String(e.from),b=String(e.to);if(blocked.has(a)||blocked.has(b))continue;if(avoidStairs&&e.stairs>0)continue;if(accessibilityRequired&&e.width<1.2)continue;adj.get(a)?.push({to:b,edge:e});adj.get(b)?.push({to:a,edge:e});} return {adj,blocked};
+}
+export function shortestPath(graph,start,end,waypoints){const dist=new Map([[start,0]]),prev=new Map(),q=[start],visited=new Set();while(q.length){q.sort((a,b)=>(dist.get(a)??Infinity)-(dist.get(b)??Infinity));const u=q.shift();if(visited.has(u))continue;visited.add(u);if(u===end)break;for(const {to,edge} of graph.adj.get(u)||[]){const nd=(dist.get(u)??Infinity)+edge.distance;if(nd<(dist.get(to)??Infinity)){dist.set(to,nd);prev.set(to,u);q.push(to)}}}if(!dist.has(end))return null;const ids=[];for(let at=end;at;at=prev.get(at))ids.unshift(at);return {waypointIds:ids,distance:dist.get(end)};}
+export function findSafestRoute({waypoints,edges,hazards,facilities,startWaypointId,facilityType,avoidStairs=false,accessibilityRequired=false}){
+ const candidates=facilities.filter(f=>f.type===facilityType&&(accessibilityRequired?!f.accessible||f.accessible:true)); const graph=buildGraph(waypoints,edges,hazards,{avoidStairs,accessibilityRequired}); const results=[];
+ for(const f of candidates){const path=shortestPath(graph,String(startWaypointId),String(f.waypointId),waypoints);if(!path)continue;const hazardDistance=graph.blocked.size?Math.min(...path.waypointIds.map((id)=>graph.blocked.has(id)?0:999)):999;const turns=Math.max(0,path.waypointIds.length-2);const risk=calculateRisk({distance:path.distance,crowdLevel:0.15,hazardDistance,turns,stairCount:avoidStairs?0:1});results.push({...path,facility:f,risk});}
+ results.sort((a,b)=>a.risk.riskScore-b.risk.riskScore||a.distance-b.distance);return results[0]||null;
+}

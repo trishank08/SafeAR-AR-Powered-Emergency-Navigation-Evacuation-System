@@ -1,0 +1,11 @@
+services:
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    ports: ["27017:27017"]
+    volumes: ["mongo_data:/data/db"]
+  ml:
+    build: ./ml-service
+    ports: ["8000:8000"]
+volumes:
+  mongo_data:
